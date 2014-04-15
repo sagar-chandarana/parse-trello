@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html ng-app="trello">
+<head>
+    <title>Trello</title>
+</head>
+<body ng-controller="body">
+    <header>
+
+        <form ng-show="!isLoggedIn && !newUser" ng-submit="login()">
+            Sign in:
+            Email: <input type="email" ng-required="true"  ng-model="userName"></input>
+            Pwd: <input type="password" ng-required="true"  ng-model="pwd"></input>
+            <input type="submit" value="Login" >
+            <a href=""><span ng-click="showSignup(true)">New user</span></a>
+
+        </form>
+        <form ng-show="!isLoggedIn && newUser" ng-submit="signup()">
+            New User:
+            Email: <input type="email" ng-required="true"  ng-model="newUserName"></textarea>
+            Pwd: <input type="password" ng-required="true"    ng-model="newPwd"></input>
+            <input type="submit" value="Signup" >
+            <a href=""><span ng-click="showSignup(false)">Existing</span></a>
+        </form>
+        <div ng-show="isLoggedIn">
+            Logged in as: {{user.email}}
+            <input type="button" value="Logout" ng-click="logout()">
+        </div>
+        <hr>
+        {{msg}}
+        <hr>
+    </header>
+
+    <h2>People on Trello</h2>
+    <div ng-repeat="(id,obj) in people">
+        {{obj.email}}  <input type="button" ng-show="showShareBtn(obj.email)" value="Add to current board" ng-click="shareWith(obj.email)">
+    </div>
+    <hr>
+
+    <div ng-show="isLoggedIn">
+
+        <h2>Add a Board</h2>
+        <div class="inputWrapper">
+        <form ng-submit="addBoard()">
+            Board Name: <textarea ng-required="true"  ng-model="newBoardName"></textarea>
+            <input id="addBoard" type="submit" value="Add" >
+        </form>
+        </div>
+
+        <h2>Boards</h2>
+
+        <div ng-repeat = "(id,board) in displayBoards"> <!--ng-repeat-->
+            <a href="" ng-click="selectBoard(id,board)"> <strong>{{board.name}}</strong></a> - by {{board.by}}
+        </div>
+        <div ng-show="selectedBoard">
+            <h2>Selected Board: {{selectedBoard.name}}</h2>
+            <h3>Shared amongst:</h3>
+            <div ng-repeat = "(id,obj) in shared"> <!--ng-repeat-->
+                {{obj.email}}  <input type="button" ng-show="showUnshareBtn(obj.email)" value="Remove" ng-click="dontShareWith(obj.email)">
+            </div>
+
+            <h3>Add a Card</h3>
+            <form ng-submit="addCard()">
+                Card Name: <textarea ng-required="true"  ng-model="newCardName" ></textarea>
+                <input  type="submit" value="Add" >
+            </form>
+
+            <h3>Cards</h3>
+
+            <div ng-repeat = "(id,card) in cards"> <!--ng-repeat-->
+             <strong>{{card.name}}</strong></a>  {{card.by}}
+            </div>
+
+        </div>
+
+    </div>
+
+<script src="parse-1.2.15.js"></script>
+<script src="underscore-min.js"></script>
+<script src="angular.min.js"></script>
+<script src="parse-ang.js"></script>
+<script src="ng-code.js"></script>
+<script src="https://cdn.firebase.com/v0/firebase.js"></script>
+
+ <script type='text/javascript'
+            src='https://cdn.firebase.com/js/simple-login/1.3.2/firebase-simple-login.js'>
+    </script>
+<script src="https://cdn.firebase.com/libs/angularfire/0.7.1/angularfire.min.js"></script>
+</body>
+</html>
