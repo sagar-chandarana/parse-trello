@@ -6,17 +6,6 @@ var trelloApp = angular.module('trello',['firebase','parseAng']);
 trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK,ExtendParseSDK){
     var parse = {};
     parse.collection = {
-
-        userBoards : Parse.Object.extendAngular('userBoards',{  //class named userBoards - to manage one to many relation from user to boards
-
-            setCurrentUser: function(user){
-                this.user = user;
-            },
-            fetchAll: function(){
-
-            }
-        })
-        ,
         board: Parse.Object.extendAngular('Board')
     }
 
@@ -34,10 +23,10 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
     var getPeople = function() {
         var qry = new Parse.Query(Parse.User);
         qry.find().then(function(ppl) {
-            console.log(ppl);
             for(var i=0;i<ppl.length;i++){
                 $scope.people[ppl[i].get('email')] = ppl[i].toJSON();
             }
+            $scope.$apply();
         }, function(error) {
             $scope.msg = "error getting users:" + JSON.stringify(error);
         });
@@ -72,7 +61,6 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
         $scope.isLoggedIn = true;
         $scope.user = user.toJSON();
         fetchBoards();
-        getPeople();
     }
 
     var afterLogOut = function(){
@@ -139,6 +127,8 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
 
 
 
+
+    getPeople();
     parse.user = Parse.User.current();
 
     if(parse.user){
@@ -171,7 +161,6 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
     
     var shareButtonStatus = function() {
         var qry = $scope.selectedBoard.relation('members').query();
-        console.log('hello');
         qry.find().then(function(list) {
             for(var i=0;i<list.length;i++) {
                 $scope.shared[list[i].get('email')] = list[i].toJSON();
@@ -181,24 +170,21 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
             $scope.msg = "Error retrieving share status: "+ JSON.stringify(err);
         });
     }
+
+    $scope.owner = false;
     
     $scope.selectBoard = function(id) {
         $scope.displayBoard = $scope.displayBoards[id];
         $scope.selectedBoard = $scope.storageBoards[id];
         $scope.shared = {};
         var owner = $scope.selectedBoard.get('by');
-        ParseQueryAngular(owner, {functionToCall: 'fetch', params: [null]}).then(function(owner) {
-            $scope.owner = owner.toJSON();
-        }, function(err) {
-            $scope.msg = "Error retrieving owner: "+ JSON.stringify(err);
-        });
+        $scope.owner = owner.toJSON();
         shareButtonStatus();
         
     }
     
     $scope.showShareBtn = function(email) {
-    return true;
-        if($scope.selectedBoard && $scope.user && $scope.shared && $scope.shared[$scope.user.email] && $scope.shared[$scope.user.email] !== 'undefined' && $scope.user.email != email && !$scope.shared[email]) {
+        if($scope.selectedBoard && $scope.user && typeof $scope.shared !== 'undefined' && typeof $scope.shared[$scope.user.email] !== 'undefined' && $scope.user.email != email && typeof $scope.shared[email] === 'undefined') {
             return true;
         } else {
             return false;
@@ -206,8 +192,8 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
     }
     
     $scope.showUnshareBtn = function(email) {
-    return true;
-        if($scope.selectedBoard && $scope.user && $scope.shared && $scope.shared[$scope.user.email] && $scope.shared[$scope.user.email] !== 'undefined' && ($scope.user.email === email || $scope.owner.email === $scope.user.email)){
+
+        if($scope.selectedBoard && $scope.user && typeof $scope.shared !== 'undefined' && typeof $scope.shared[$scope.user.email] != 'undefined' && $scope.owner.email != email && ($scope.user.email == email || $scope.owner.email == $scope.user.email)){
             return true;
         } else {
             return false;
@@ -234,6 +220,8 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
         rel.remove(user);
         $scope.selectedBoard.save();
         delete $scope.shared[email];
+        if($scope.user.email === email)
+            window.location.reload();
     }
 
 /*
