@@ -32,7 +32,7 @@
 
     <h2>People on Trello</h2>
     <div ng-repeat="(id,obj) in people">
-        {{obj.email}}  <input type="button" ng-show="showShareBtn(obj.email)" value="Add to current board" ng-click="shareWith(obj.email)">
+        {{obj.email}}<input type="button" ng-show="showShareBtn(obj.email)" value="Add to current board" ng-click="shareWith(obj.email)">
     </div>
     <hr>
 
@@ -51,8 +51,8 @@
         <div ng-repeat = "(id,board) in displayBoards"> <!--ng-repeat-->
             <a href="" ng-click="selectBoard(id,board)"> <strong>{{board.name}}</strong></a> - by {{board.by}}
         </div>
-        <div ng-show="selectedBoard">
-            <h2>Selected Board: {{selectedBoard.name}}</h2>
+        <div ng-show="displayBoard">
+            <h2>Selected Board: {{displayBoard.name}}</h2>
             <h3>Shared amongst:</h3>
             <div ng-repeat = "(id,obj) in shared"> <!--ng-repeat-->
                 {{obj.email}}  <input type="button" ng-show="showUnshareBtn(obj.email)" value="Remove" ng-click="dontShareWith(obj.email)">

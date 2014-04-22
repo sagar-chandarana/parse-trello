@@ -60,7 +60,7 @@ parseAng.factory('ParseQueryAngular',['$q','$timeout',function ($q, $timeout) {
 parseAng.factory('ParseSDK', function() {
 
         // pro-tip: swap these keys out for PROD keys automatically on deploy using grunt-replace
-        Parse.initialize("6uLm7rzMrW64YqAh5dlLJuxX7sZffCJq2PTjbxaJ", "1CuzJOKUuPR6lADURyhliQJF2a1KS1706ASeG5de");
+        Parse.initialize("C6B4x00ER4T3WK2bLoXUu5vZ3LO1GdtAM5n6T9v6", "lhcyDR93Vzolg7fgl3ZVxBgDSW6xt5Kye1Bi36u4");
 
     });
 
