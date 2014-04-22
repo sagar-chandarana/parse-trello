@@ -32,44 +32,73 @@
 
     <h2>People on Trello</h2>
     <div ng-repeat="(id,obj) in people">
-        {{obj.email}}<input type="button" ng-show="showShareBtn(obj.email)" value="Add to current board" ng-click="shareWith(obj.email)">
+        {{obj.email}} <input type="button" ng-show="showAddMemberBtn(obj.email)" value="Add as member in org" ng-click="addMember(obj.email)"> 
     </div>
     <hr>
 
     <div ng-show="isLoggedIn">
 
-        <h2>Add a Board</h2>
+        <h2>Add a org</h2>
         <div class="inputWrapper">
-        <form ng-submit="addBoard()">
-            Board Name: <textarea ng-required="true"  ng-model="newBoardName"></textarea>
-            <input id="addBoard" type="submit" value="Add" >
+        <form ng-submit="addOrg()">
+            Org Name: <textarea ng-required="true"  ng-model="newOrgName"></textarea>
+            <input id="addOrg" type="submit" value="Add" >
         </form>
         </div>
 
-        <h2>Boards</h2>
+         <h2>Orgs</h2>
 
-        <div ng-repeat = "(id,board) in displayBoards"> <!--ng-repeat-->
-            <a href="" ng-click="selectBoard(id,board)"> <strong>{{board.name}}</strong></a> - by {{board.by}}
-        </div>
-        <div ng-show="displayBoard">
-            <h2>Selected Board: {{displayBoard.name}}</h2>
-            <h3>Shared amongst:</h3>
-            <div ng-repeat = "(id,obj) in shared"> <!--ng-repeat-->
-                {{obj.email}}  <input type="button" ng-show="showUnshareBtn(obj.email)" value="Remove" ng-click="dontShareWith(obj.email)">
+            <div ng-repeat = "(id,org) in displayOrgs"> <!--ng-repeat-->
+                <a href="" ng-click="selectOrg(id,org)"> <strong>{{org.name}}</strong></a> - by {{org.by}}
             </div>
 
-            <h3>Add a Card</h3>
-            <form ng-submit="addCard()">
-                Card Name: <textarea ng-required="true"  ng-model="newCardName" ></textarea>
-                <input  type="submit" value="Add" >
+        <div ng-show="displayOrg">
+
+            <h2>Selected Org: {{displayOrg.name}}</h2> <h4>Org owner - {{displayOrg.by}} </h4>
+
+                <h3>Members:</h3>
+                <div ng-repeat = "(id,obj) in orgMembers"> <!--ng-repeat-->
+                    {{obj[0].email}} 
+                    <span ng-show="{{obj[1]}}" style="font-color:'red' "> Admin</span>
+                    <input type="button" ng-show="showRemoveMemberBtn(obj.email) && {{!obj[1]}}" value="Remove member" ng-click="removeMember(obj[0].email,false)"> 
+                    <input type="button" ng-show="showRemoveMemberBtn(obj.email) && {{obj[1]}}" value="Remove admin" ng-click="removeMember(obj[0].email,true)">
+                    <input type="button" ng-show="showAddMemberBtn(obj.email) && {{!obj[1]}}" value="Make admin" ng-click="addMember(obj[0].email,true)">  
+                    <input type="button" ng-show="showShareBtn(obj.email)" value="Add to current board" ng-click="shareWith(obj[0].email)">
+                </div>
+
+            <h2>Add a Board</h2>
+            <div class="inputWrapper">
+            <form ng-submit="addBoard()">
+                Board Name: <textarea ng-required="true"  ng-model="newBoardName"></textarea>
+                <input id="addBoard" type="submit" value="Add" >
             </form>
-
-            <h3>Cards</h3>
-
-            <div ng-repeat = "(id,card) in cards"> <!--ng-repeat-->
-             <strong>{{card.name}}</strong></a>  {{card.by}}
             </div>
 
+            <h2>Boards</h2>
+
+            <div ng-repeat = "(id,board) in displayBoards"> <!--ng-repeat-->
+                <a href="" ng-click="selectBoard(id,board)"> <strong>{{board.name}}</strong></a> - by {{board.by}}
+            </div>
+            <div ng-show="displayBoard">
+                <h2>Selected Board: {{displayBoard.name}}</h2>
+                <h3>Shared amongst:</h3>
+                <div ng-repeat = "(id,obj) in shared"> <!--ng-repeat-->
+                    {{obj.email}}  <input type="button" ng-show="showUnshareBtn(obj.email)" value="Remove" ng-click="dontShareWith(obj.email)">
+                </div>
+
+                <h3>Add a Card</h3>
+                <form ng-submit="addCard()">
+                    Card Name: <textarea ng-required="true"  ng-model="newCardName" ></textarea>
+                    <input  type="submit" value="Add" >
+                </form>
+
+                <h3>Cards</h3>
+
+                <div ng-repeat = "(id,card) in cards"> <!--ng-repeat-->
+                 <strong>{{card.name}}</strong></a>  {{card.by}}
+                </div>
+
+            </div>
         </div>
 
     </div>

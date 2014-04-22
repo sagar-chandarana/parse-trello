@@ -4,20 +4,37 @@
 var trelloApp = angular.module('trello',['firebase','parseAng']);
 
 trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK,ExtendParseSDK){
-    var parse = {};
+    var parse = {
+                    storage: {
+                        cur_user:false, 
+                        selectedBoard:false,
+                        selectedOrg:false,
+                        orgs:{},
+                        boards:{},
+                        people:{}
+                    }
+                };
+
     parse.collection = {
-        board: Parse.Object.extendAngular('Board')
+        user: Parse.User,
+        board: Parse.Object.extendAngular('Board'),
+        card: Parse.Object.extendAngular('Card'),
+        organisation: Parse.Object.extendAngular('Organisation'),
+        org_mem: Parse.Object.extendAngular('OrgMembers')
     }
 
 
     $scope.newUser = false;
     $scope.user = null;
     //$scope.people = $firebase(new Firebase("https://fire-suck.firebaseio.com/users"));
+
+    $scope.displayOrgs = {};
     $scope.displayBoards = {};
-    $scope.storageBoards = {};
+    $scope.orgMembers = {};
+    
     //$scope.boards = $firebase(new Firebase("https://fire-suck.firebaseio.com/boards"));
     //var fireRef;
-    //$scope.selectedBoard = 0;
+    //parse.storage.selected_board = 0;
     $scope.people = {};
     
     var getPeople = function() {
@@ -25,6 +42,7 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
         qry.find().then(function(ppl) {
             for(var i=0;i<ppl.length;i++){
                 $scope.people[ppl[i].get('email')] = ppl[i].toJSON();
+                parse.storage.people[ppl[i].get('email')] = ppl[i];
             }
             $scope.$apply();
         }, function(error) {
@@ -36,15 +54,47 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
         var obj = board.toJSON();
         obj.by = board.get('by').getEmail();
         $scope.displayBoards[obj.objectId]= obj;
-        $scope.storageBoards[obj.objectId]= board;
+        parse.storage.boards[obj.objectId]= board;
+    }
+
+
+    var addOrgToView = function(org){
+        var obj = org.toJSON();
+        obj.by = org.get('by').getEmail();
+        $scope.displayOrgs[obj.objectId]= obj;
+        parse.storage.orgs[obj.objectId]= org;
+    }
+
+
+    var fetchOrgs = function(){
+        var qry = new Parse.Query(parse.collection.org_mem);
+        qry.equalTo('member',parse.storage.cur_user);
+        //qry.include('members');
+        qry.include('org.by');
+        ParseQueryAngular(qry).then(function(org_mems){
+            org_mems.forEach(function(org_mem){
+                console.log(org_mem.toJSON());
+                addOrgToView(org_mem.get('org'));
+            })
+
+        },function(error){
+            console.log(error);
+        });
     }
 
     var fetchBoards = function(){
+        parse.storage.boards = {}
+        $scope.displayBoards = {}
+        $scope.displayBoard = false;
+        parse.storage.selected_board = false;
+
         var qry = new Parse.Query(parse.collection.board);
-        qry.equalTo('members',parse.user);
+        qry.equalTo('members',parse.storage.cur_user);
+        qry.equalTo('org',parse.storage.selected_org);
         //qry.include('members');
         qry.include('by');
         ParseQueryAngular(qry).then(function(boards){
+            console.log("yo boards",boards);
             boards.forEach(function(board){
                 addBoardToView(board);
             })
@@ -57,10 +107,10 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
 
 
     var afterLogIn = function(user){
-        parse.user = user;
+        parse.storage.cur_user = user;
         $scope.isLoggedIn = true;
         $scope.user = user.toJSON();
-        fetchBoards();
+        fetchOrgs();
     }
 
     var afterLogOut = function(){
@@ -70,7 +120,8 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
 
             $scope.displayBoards = {};
             $scope.userBoards = null;
-            $scope.selectedBoard = false;
+            parse.storage.selected_org = false;
+            parse.storage.selected_board = false;
             $scope.displayBoard = false;
             $scope.shared = {};
         }
@@ -129,11 +180,11 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
 
 
     getPeople();
-    parse.user = Parse.User.current();
+    parse.storage.cur_user = Parse.User.current();
 
-    if(parse.user){
+    if(parse.storage.cur_user){
         $scope.msg = 'Logged in.'
-        afterLogIn(parse.user);
+        afterLogIn(parse.storage.cur_user);
     } else {
         $scope.msg = 'Not logged in.';
         //afterLogOut();
@@ -141,10 +192,11 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
 
     $scope.addBoard = function(){
         var board = new parse.collection.board();
-        board.set('by',parse.user);
+        board.set('by',parse.storage.cur_user);
+        board.set('org',parse.storage.selected_org);
         board.set('name',$scope.newBoardName);
         Parse.Relation(board,'members');
-        board.relation('members').add(parse.user); //adding current user as the member
+        board.relation('members').add(parse.storage.cur_user); //adding current user as the member
 
         ParseQueryAngular(board,{functionToCall:'save',params:[null]}).then(function(board){
             $scope.msg = 'board added';
@@ -156,11 +208,37 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
         $scope.newBoardName =''
     }
 
-    $scope.selectedBoard = false;
+    $scope.addOrg = function(){
+        var org = new parse.collection.organisation();
+        org.set('by',parse.storage.cur_user);
+        org.set('name',$scope.newOrgName);
+        
+        
+        
+        /*
+        Parse.Relation(org,'members');
+        org.relation('members').add(parse.storage.cur_user); //adding current user as the member
+        */
+
+        ParseQueryAngular(org,{functionToCall:'save',params:[null]}).then(function(org){
+            $scope.msg = 'org added';
+            addOrgToView(org);
+
+            return $scope.addMember(parse.storage.cur_user.getEmail(),true,org);
+
+        }).then(function(orgMem){
+            //nothing;
+        },function(error){
+            $scope.msg = "Error in saving org: "+ JSON.stringify(error);
+        })
+
+        $scope.newOrgName =''
+    }
+
     $scope.displayBoard = false;
     
     var shareButtonStatus = function() {
-        var qry = $scope.selectedBoard.relation('members').query();
+        var qry = parse.storage.selected_board.relation('members').query();
         qry.find().then(function(list) {
             for(var i=0;i<list.length;i++) {
                 $scope.shared[list[i].get('email')] = list[i].toJSON();
@@ -171,20 +249,50 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
         });
     }
 
+    var fetchOrgMembers = function() {
+        var qry = new Parse.Query(parse.collection.org_mem);
+        qry.equalTo('org',parse.storage.selected_org);
+        qry.include('member');
+
+        ParseQueryAngular(qry).then(function(members){
+            $scope.orgMembers = {}; //clear old members
+
+            console.log("yo members",members);
+            members.forEach(function(memberEntry){
+                console.log("yo member",memberEntry.toJSON());
+                $scope.orgMembers[memberEntry.get('member').get('email')] = [memberEntry.get('member').toJSON(),memberEntry.get('admin')];
+            })
+
+        },function(err) {
+            $scope.msg = "Error retrieving org members: "+ JSON.stringify(err);
+        });
+    }
+
     $scope.owner = false;
     
     $scope.selectBoard = function(id) {
         $scope.displayBoard = $scope.displayBoards[id];
-        $scope.selectedBoard = $scope.storageBoards[id];
+        parse.storage.selected_board = parse.storage.boards[id];
         $scope.shared = {};
-        var owner = $scope.selectedBoard.get('by');
+        var owner = parse.storage.selected_board.get('by');
         $scope.owner = owner.toJSON();
         shareButtonStatus();
         
     }
+
+    $scope.selectOrg = function(id) {
+        $scope.displayOrg = $scope.displayOrgs[id];
+        parse.storage.selected_org = parse.storage.orgs[id];
+        $scope.orgMembers = {};
+        var owner = parse.storage.selected_org.get('by');
+        //$scope.owner = owner.toJSON();
+        fetchOrgMembers();
+        fetchBoards();
+        
+    }
     
     $scope.showShareBtn = function(email) {
-        if($scope.selectedBoard && $scope.user && typeof $scope.shared !== 'undefined' && typeof $scope.shared[$scope.user.email] !== 'undefined' && $scope.user.email != email && typeof $scope.shared[email] === 'undefined') {
+        if(parse.storage.selected_board && $scope.user && typeof $scope.shared !== 'undefined' && typeof $scope.shared[$scope.user.email] !== 'undefined' && $scope.user.email != email && typeof $scope.shared[email] === 'undefined') {
             return true;
         } else {
             return false;
@@ -193,19 +301,96 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
     
     $scope.showUnshareBtn = function(email) {
 
-        if($scope.selectedBoard && $scope.user && typeof $scope.shared !== 'undefined' && typeof $scope.shared[$scope.user.email] != 'undefined' && $scope.owner.email != email && ($scope.user.email == email || $scope.owner.email == $scope.user.email)){
+        if(parse.storage.selected_board && $scope.user && typeof $scope.shared !== 'undefined' && typeof $scope.shared[$scope.user.email] != 'undefined' && $scope.owner.email != email && ($scope.user.email == email || $scope.owner.email == $scope.user.email)){
             return true;
         } else {
             return false;
         }
     }
+
+
+
+    $scope.showAddMemberBtn = function(email){
+        return true;
+    }
+
+    $scope.showRemoveMemberBtn = function(email){
+        return true;
+    }
+
+    $scope.removeMember = function(email, asAdmin){
+        asAdmin = false || asAdmin ;
+        var org = parse.storage.selected_org;
+        var orgMem;
+        var qry = new Parse.Query(parse.collection.org_mem);
+        qry.equalTo('member',parse.storage.people[email])
+        qry.equalTo('org',org);
+
+        ParseQueryAngular(qry).then(function(entries){
+            if (entries.length>0){
+                orgMem = entries[0];
+                if (asAdmin){                
+                    orgMem.set('admin', false);
+                    return ParseQueryAngular(orgMem,{functionToCall:'save',params:[null]});
+                } else {
+                    return ParseQueryAngular(orgMem,{functionToCall:'destroy',params:[null]});
+                }
+            } 
+
+        }).then(function(memberEntry){
+            fetchOrgMembers();
+        },function(err) {
+            $scope.msg = "Error adding member: "+ JSON.stringify(err);
+        });
+    }
+
+    $scope.addMember = function(email, asAdmin,org){
+
+        if (typeof asAdmin == 'undefined'){
+            asAdmin = false;
+        }
+        if (typeof org == 'undefined'){
+            org = parse.storage.selected_org;
+        }
+
+
+        var orgMem;
+
+        var qry = new Parse.Query(parse.collection.org_mem);
+        qry.equalTo('member',parse.storage.people[email])
+        qry.equalTo('org',org);
+
+        ParseQueryAngular(qry).then(function(entries){
+            console.log(entries);
+            if (entries.length==0){
+                orgMem =  new parse.collection.org_mem();
+                orgMem.set('org',org);
+                orgMem.set('member',parse.storage.people[email]);
+                console.log(parse.storage.people[email]);
+                console.log(parse.storage.people);
+                
+            } else {
+                orgMem = entries[0];
+
+            }
+
+            orgMem.set('admin',asAdmin);
+            return ParseQueryAngular(orgMem,{functionToCall:'save',params:[null]});
+
+        }).then(function(memberEntry){
+            if (org == parse.storage.selected_org)
+                fetchOrgMembers();
+        },function(err) {
+            $scope.msg = "Error adding member: "+ JSON.stringify(err);
+        });
+    }
     
     $scope.shareWith = function(email) {
         var user = new Parse.User();
         user.id = $scope.people[email].objectId;
-        var rel = $scope.selectedBoard.relation('members');
+        var rel = parse.storage.selected_board.relation('members');
         rel.add(user);
-        $scope.selectedBoard.save(null, {
+        parse.storage.selected_board.save(null, {
             error: function(obj, err) {
                 console.log(err);
             }
@@ -216,44 +401,12 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
     $scope.dontShareWith = function(email) {
         var user = new Parse.User();
         user.id = $scope.people[email].objectId;
-        var rel = $scope.selectedBoard.relation('members');
+        var rel = parse.storage.selected_board.relation('members');
         rel.remove(user);
-        $scope.selectedBoard.save();
+        parse.storage.selected_board.save();
         delete $scope.shared[email];
         if($scope.user.email === email)
             window.location.reload();
     }
 
-/*
-    The code from firetrello: need to be converted to parse
-    $scope.showShareBtn = function(email){
-        return ($scope.user && $scope.shared && $scope.user.email != email && $scope.selectedBoard && $scope.selectedBoard.by == $scope.user.email && email && typeof $scope.shared[email.replace(/\./g,"_")]== 'undefined')
-    }
-
-    $scope.showUnshareBtn = function(email){
-        return ($scope.user && $scope.shared && $scope.selectedBoard && ($scope.selectedBoard.by == $scope.user.email || $scope.user.email == email ) && email)
-    }
-
-    $scope.selectBoard = function(id){
-        $scope.selectedBoard = $firebase(new Firebase("https://fire-suck.firebaseio.com/boards/"+id));
-        $scope.cards = $firebase(new Firebase("https://fire-suck.firebaseio.com/boards/"+id+"/cards"));
-        $scope.shared = $firebase(new Firebase("https://fire-suck.firebaseio.com/boards/"+id+"/shared"));
-    }
-
-    $scope.shareWith = function(email){
-        $scope.shared.$child(email.replace(/\./g,"_")).$child('email').$set(email);
-        $scope.people.$child(email.replace(/\./g,"_")).$child('boards').$child($scope.selectedBoard.$id).$set(true);
-    }
-
-    $scope.dontShareWith = function(email){
-        $scope.shared.$child(email.replace(/\./g,"_")).$set(null);
-        $scope.people.$child(email.replace(/\./g,"_")).$child('boards').$child($scope.selectedBoard.$id).$set(null);
-    }
-
-    $scope.addCard = function(){
-        $scope.cards.$add({name:$scope.newCardName,by: $scope.user.email});
-        $scope.newCardName =''
-        $scope.newCardUser = ""
-    }
-    */
 });
