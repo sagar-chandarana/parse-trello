@@ -60,10 +60,10 @@
                 <div ng-repeat = "(id,obj) in orgMembers"> <!--ng-repeat-->
                     {{obj[0].email}} 
                     <span ng-show="{{obj[1]}}" style="font-color:'red' "> Admin</span>
-                    <input type="button" ng-show="showRemoveMemberBtn(obj.email) && {{!obj[1]}}" value="Remove member" ng-click="removeMember(obj[0].email,false)"> 
-                    <input type="button" ng-show="showRemoveMemberBtn(obj.email) && {{obj[1]}}" value="Remove admin" ng-click="removeMember(obj[0].email,true)">
-                    <input type="button" ng-show="showAddMemberBtn(obj.email) && {{!obj[1]}}" value="Make admin" ng-click="addMember(obj[0].email,true)">  
-                    <input type="button" ng-show="showShareBtn(obj.email)" value="Add to current board" ng-click="shareWith(obj[0].email)">
+                    <input type="button" ng-show="showRemoveMemberBtn(obj[0].email) && {{!obj[1]}}" value="Remove member" ng-click="removeMember(obj[0].email,false)"> 
+                    <input type="button" ng-show="showRemoveMemberBtn(obj[0].email) && {{obj[1]}}" value="Remove admin" ng-click="removeMember(obj[0].email,true)">
+                    <input type="button" ng-show="showAddMemberBtn(obj[0].email,true) && {{!obj[1]}}" value="Make admin" ng-click="addMember(obj[0].email,true)">
+                    <input type="button" ng-show="showShareBtn(obj[0].email)" value="Add to current board" ng-click="shareWith(obj[0].email)">
                 </div>
 
             <h2>Add a Board</h2>
