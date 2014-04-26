@@ -2,9 +2,9 @@
  * Created by Sagar on 4/5/14.
  */
 
-var trelloApp = angular.module('trello',['firebase','parseAng']);
+var trelloApp = angular.module('trello',['parseAng']);
 
-trelloApp.controller('body',function($scope,$q,$firebase,ParseQueryAngular,ParseSDK,ExtendParseSDK){
+trelloApp.controller('body',function($scope,$q,ParseQueryAngular,ParseSDK,ExtendParseSDK){
 
     //init vars
     var parse = {
