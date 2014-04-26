@@ -78,7 +78,6 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
 
 
     var fetchOrgs = function(){
-        reset('org');
         reset('all_orgs');
 
         var qry = new Parse.Query(parse.collection.org_mem);
@@ -97,7 +96,6 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
     }
 
     var fetchBoards = function(){
-        reset('board');
         reset('all_boards')
 
         var qry = new Parse.Query(parse.collection.board);
@@ -262,13 +260,42 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
         org.set('name',$scope.newOrgName);
         
         
-        
         /*
         Parse.Relation(org,'members');
         org.relation('members').add(parse.storage.cur_user); //adding current user as the member
         */
 
         ParseQueryAngular(org,{functionToCall:'save',params:[null]}).then(function(org){
+
+            console.log(org.id);
+            //--------------
+
+            var roleACL = new Parse.ACL();
+            roleACL.setPublicReadAccess(true);
+            var role = new Parse.Role("Admins-"+org.id, roleACL);
+            role.getUsers().add(parse.storage.cur_user);
+            roleACL.setRoleWriteAccess(role,true);
+
+            ParseQueryAngular(role,{functionToCall:'save',params:[null]})
+            .then(function(role) {
+                $scope.msg = 'Rolling';
+                role.set('test','lala');
+                return ParseQueryAngular(role,{functionToCall:'save',params:[null]});
+
+            },function(error){
+                $scope.msg = 'Not rolling: '+JSON.stringify(error);
+            })
+
+            .then(function(role){
+                $scope.msg = 'Rolling deep';
+
+            },function(error){
+                $scope.msg = 'nahi chad rhi: '+JSON.stringify(error);
+            })
+
+
+
+            //--------------
             $scope.msg = 'org added';
             addOrgToView(org);
 
@@ -359,7 +386,7 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
     }
 
     $scope.removeMember = function(email, asAdmin){
-        asAdmin = false || asAdmin ;
+        var asAdmin = false || asAdmin ;
         var org = parse.storage.selected_org;
         var orgMem;
         var qry = new Parse.Query(parse.collection.org_mem);
@@ -387,14 +414,20 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
     $scope.addMember = function(email, asAdmin,org){
 
         if (typeof asAdmin == 'undefined'){
-            asAdmin = false;
+            var asAdmin = false;
         }
         if (typeof org == 'undefined'){
-            org = parse.storage.selected_org;
+            var org = parse.storage.selected_org;
         }
 
 
         var orgMem;
+
+        //var qryRole = new Parse.Query(Parse.Role);
+        //qry.equalTo('name')
+
+        //var role = Parse.Role.get("Admins-"+org.id, roleACL);
+        //role.getUsers().add(parse.storage.cur_user);
 
         var qry = new Parse.Query(parse.collection.org_mem);
         qry.equalTo('member',parse.storage.people[email])
