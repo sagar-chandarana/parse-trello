@@ -291,6 +291,7 @@ trelloApp.controller('body',function($scope,$q,$firebase,ParseQueryAngular,Parse
             memberRole.getUsers().add(parse.storage.cur_user);
             memberRoleACL.setRoleReadAccess(memberRole,true);
             memberRoleACL.setRoleWriteAccess(adminRole,true);
+            memberRoleACL.setRoleReadAccess(adminRole,true);
 
             return ParseQueryAngular(memberRole,{functionToCall:'save',params:[null]});
 
@@ -394,6 +395,7 @@ trelloApp.controller('body',function($scope,$q,$firebase,ParseQueryAngular,Parse
     }
 
     $scope.showAddMemberBtn = function(email,adminBtn){
+        return true;
         //console.log((typeof adminBtn == 'undefined'? typeof $scope.orgMembers[email] == 'undefined' : typeof $scope.orgMembers[email] != 'undefined'))
         return parse.storage.selected_org && $scope.user && typeof $scope.orgMembers !== 'undefined' && (typeof adminBtn == 'undefined'? typeof $scope.orgMembers[email] == 'undefined' : typeof $scope.orgMembers[email] != 'undefined') && typeof $scope.orgMembers[$scope.user.email] != 'undefined' && $scope.orgMembers[$scope.user.email][1];
     }
@@ -403,29 +405,48 @@ trelloApp.controller('body',function($scope,$q,$firebase,ParseQueryAngular,Parse
     }
 
     $scope.removeMember = function(email, asAdmin){
-        var asAdmin = false || asAdmin ;
+
+        if (typeof asAdmin == 'undefined'){
+            var asAdmin = false;
+        }
         var org = parse.storage.selected_org;
         var orgMem;
-        var qry = new Parse.Query(parse.collection.org_mem);
-        qry.equalTo('member',parse.storage.people[email])
-        qry.equalTo('org',org);
+        var qryRole = new Parse.Query(Parse.Role);
 
-        ParseQueryAngular(qry).then(function(entries){
-            if (entries.length>0){
-                orgMem = entries[0];
-                if (asAdmin){                
-                    orgMem.set('admin', false);
-                    return ParseQueryAngular(orgMem,{functionToCall:'save',params:[null]});
-                } else {
-                    return ParseQueryAngular(orgMem,{functionToCall:'destroy',params:[null]});
+        if(asAdmin){
+            qryRole.equalTo('name',"Admins-"+org.id);
+        } else {
+            qryRole.equalTo('name','Members-'+org.id);
+        }
+
+        ParseQueryAngular(qryRole)
+            .then(function(roles){
+                var role = roles[0];
+                role.getUsers().remove(parse.storage.people[email])
+                return ParseQueryAngular(role,{functionToCall:'save',params:[null]});
+            })
+            .then(function(){
+                var qry = new Parse.Query(parse.collection.org_mem);
+                qry.equalTo('member',parse.storage.people[email])
+                qry.equalTo('org',org);
+
+                return ParseQueryAngular(qry);
+            })
+            .then(function(entries){
+                if (entries.length>0){
+                    orgMem = entries[0];
+                    if (asAdmin){
+                        orgMem.set('admin', false);
+                        return ParseQueryAngular(orgMem,{functionToCall:'save',params:[null]});
+                    } else {
+                        return ParseQueryAngular(orgMem,{functionToCall:'destroy',params:[null]});
+                    }
                 }
-            } 
-
-        }).then(function(memberEntry){
-            fetchOrgMembers();
-        },function(err) {
-            $scope.msg = "Error adding member: "+ JSON.stringify(err);
-        });
+            }).then(function(memberEntry){
+                fetchOrgMembers();
+            },function(err) {
+                $scope.msg = "Error adding member: "+ JSON.stringify(err);
+            });
     }
 
     $scope.addMember = function(email, asAdmin,org){
@@ -446,27 +467,19 @@ trelloApp.controller('body',function($scope,$q,$firebase,ParseQueryAngular,Parse
         ParseQueryAngular(qryRole)
         .then(function(roles){
             memberRole = roles[0];
+
             memberRole.getUsers().add(parse.storage.people[email])
             return ParseQueryAngular(memberRole,{functionToCall:'save',params:[null]});
         })
         .then(function(memberRole){
-            if(asAdmin){
-                var qryARole = new Parse.Query(Parse.Role);
-                qryARole.equalTo('name',"Admins-"+org.id);
-                return ParseQueryAngular(qryARole);
+            var qryARole = new Parse.Query(Parse.Role);
+            qryARole.equalTo('name',"Admins-"+org.id);
+            return ParseQueryAngular(qryARole);
 
-            } else {
-                var empty = $q.defer();
-                setTimeout(function(){
-                    empty.resolve(false);
-                },0);
-                return empty;
-            }
         })
         .then(function(roles){
-
-            if(asAdmin && roles){
-                adminRole = roles[0];
+            adminRole = roles[0];
+            if(asAdmin){
                 adminRole.getUsers().add(parse.storage.people[email])
                 return ParseQueryAngular(adminRole ,{functionToCall:'save',params:[null]});
             }else{
@@ -491,6 +504,7 @@ trelloApp.controller('body',function($scope,$q,$firebase,ParseQueryAngular,Parse
                 orgMem.set('org',org);
                 orgMem.set('member',parse.storage.people[email]);
                 var orgMemAcl = new Parse.ACL(parse.storage.people[email]);
+                orgMemAcl.setRoleReadAccess(memberRole,true);
                 orgMemAcl.setRoleReadAccess(adminRole,true);
                 orgMemAcl.setRoleWriteAccess(adminRole,true);
                 orgMem.setACL(orgMemAcl);
