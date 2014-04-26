@@ -258,7 +258,9 @@ trelloApp.controller('body',function($scope,$q,$firebase,ParseQueryAngular,Parse
         var orgNew = new parse.collection.organisation();
         orgNew.set('by',parse.storage.cur_user);
         orgNew.set('name',$scope.newOrgName);
-        
+
+        var memberRole;
+        var adminRole;
         
         /*
         Parse.Relation(org,'members');
@@ -271,7 +273,7 @@ trelloApp.controller('body',function($scope,$q,$firebase,ParseQueryAngular,Parse
             $scope.msg ='org saved. wait..'
 
             var adminRoleACL = new Parse.ACL();
-            var adminRole = new Parse.Role("Admins-"+orgNew.id, adminRoleACL);
+            adminRole = new Parse.Role("Admins-"+orgNew.id, adminRoleACL);
             adminRole.getUsers().add(parse.storage.cur_user);
             adminRoleACL.setRoleWriteAccess(adminRole,true);
             adminRoleACL.setRoleReadAccess(adminRole,true);
@@ -285,7 +287,7 @@ trelloApp.controller('body',function($scope,$q,$firebase,ParseQueryAngular,Parse
         .then(function(adminRole) {
             $scope.msg = 'Rolling. wait..';
             var memberRoleACL = new Parse.ACL();
-            var memberRole = new Parse.Role("Members-"+orgNew.id, memberRoleACL);
+            memberRole = new Parse.Role("Members-"+orgNew.id, memberRoleACL);
             memberRole.getUsers().add(parse.storage.cur_user);
             memberRoleACL.setRoleReadAccess(memberRole,true);
             memberRoleACL.setRoleWriteAccess(adminRole,true);
@@ -297,6 +299,19 @@ trelloApp.controller('body',function($scope,$q,$firebase,ParseQueryAngular,Parse
         })
 
         .then(function(role){
+            $scope.msg = 'Adding permissions..';
+
+            var orgACL = new Parse.ACL();
+            orgACL.setRoleReadAccess(memberRole,true);
+            orgACL.setRoleReadAccess(adminRole,true);
+            orgACL.setRoleWriteAccess(adminRole,true);
+
+            orgNew.setACL(orgACL);
+            return ParseQueryAngular(orgNew,{functionToCall:'save',params:[null]});
+
+        })
+        .then(function(orgNew){
+
 
             $scope.msg = 'permissions added.';
             addOrgToView(orgNew);
@@ -422,12 +437,15 @@ trelloApp.controller('body',function($scope,$q,$firebase,ParseQueryAngular,Parse
             var org = parse.storage.selected_org;
         }
 
+        var memberRole;
+        var adminRole;
+
         var qryRole = new Parse.Query(Parse.Role);
         qryRole.equalTo('name','Members-'+org.id);
 
         ParseQueryAngular(qryRole)
         .then(function(roles){
-            var memberRole = roles[0];
+            memberRole = roles[0];
             memberRole.getUsers().add(parse.storage.people[email])
             return ParseQueryAngular(memberRole,{functionToCall:'save',params:[null]});
         })
@@ -446,9 +464,9 @@ trelloApp.controller('body',function($scope,$q,$firebase,ParseQueryAngular,Parse
             }
         })
         .then(function(roles){
-            console.log(roles);
+
             if(asAdmin && roles){
-                var adminRole = roles[0];
+                adminRole = roles[0];
                 adminRole.getUsers().add(parse.storage.people[email])
                 return ParseQueryAngular(adminRole ,{functionToCall:'save',params:[null]});
             }else{
@@ -472,6 +490,10 @@ trelloApp.controller('body',function($scope,$q,$firebase,ParseQueryAngular,Parse
                 var orgMem =  new parse.collection.org_mem();
                 orgMem.set('org',org);
                 orgMem.set('member',parse.storage.people[email]);
+                var orgMemAcl = new Parse.ACL(parse.storage.people[email]);
+                orgMemAcl.setRoleReadAccess(adminRole,true);
+                orgMemAcl.setRoleWriteAccess(adminRole,true);
+                orgMem.setACL(orgMemAcl);
 
             } else {
                 var orgMem = entries[0];
