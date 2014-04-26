@@ -4,7 +4,7 @@
 
 var trelloApp = angular.module('trello',['firebase','parseAng']);
 
-trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK,ExtendParseSDK){
+trelloApp.controller('body',function($scope,$q,$firebase,ParseQueryAngular,ParseSDK,ExtendParseSDK){
 
     //init vars
     var parse = {
@@ -255,9 +255,9 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
     }
 
     $scope.addOrg = function(){
-        var org = new parse.collection.organisation();
-        org.set('by',parse.storage.cur_user);
-        org.set('name',$scope.newOrgName);
+        var orgNew = new parse.collection.organisation();
+        orgNew.set('by',parse.storage.cur_user);
+        orgNew.set('name',$scope.newOrgName);
         
         
         /*
@@ -265,44 +265,46 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
         org.relation('members').add(parse.storage.cur_user); //adding current user as the member
         */
 
-        ParseQueryAngular(org,{functionToCall:'save',params:[null]}).then(function(org){
+        ParseQueryAngular(orgNew,{functionToCall:'save',params:[null]})
+        .then(function(org){
+            orgNew = org;
+            $scope.msg ='org saved. wait..'
 
-            console.log(org.id);
-            //--------------
+            var adminRoleACL = new Parse.ACL();
+            var adminRole = new Parse.Role("Admins-"+orgNew.id, adminRoleACL);
+            adminRole.getUsers().add(parse.storage.cur_user);
+            adminRoleACL.setRoleWriteAccess(adminRole,true);
+            adminRoleACL.setRoleReadAccess(adminRole,true);
 
-            var roleACL = new Parse.ACL();
-            roleACL.setPublicReadAccess(true);
-            var role = new Parse.Role("Admins-"+org.id, roleACL);
-            role.getUsers().add(parse.storage.cur_user);
-            roleACL.setRoleWriteAccess(role,true);
-
-            ParseQueryAngular(role,{functionToCall:'save',params:[null]})
-            .then(function(role) {
-                $scope.msg = 'Rolling';
-                role.set('test','lala');
-                return ParseQueryAngular(role,{functionToCall:'save',params:[null]});
-
-            },function(error){
-                $scope.msg = 'Not rolling: '+JSON.stringify(error);
-            })
-
-            .then(function(role){
-                $scope.msg = 'Rolling deep';
-
-            },function(error){
-                $scope.msg = 'nahi chad rhi: '+JSON.stringify(error);
-            })
-
-
-
-            //--------------
-            $scope.msg = 'org added';
-            addOrgToView(org);
-
-            $scope.addMember(parse.storage.cur_user.getEmail(),true,org);
+            return ParseQueryAngular(adminRole,{functionToCall:'save',params:[null]})
 
         },function(error){
             $scope.msg = "Error in saving org: "+ JSON.stringify(error);
+        })
+
+        .then(function(adminRole) {
+            $scope.msg = 'Rolling. wait..';
+            var memberRoleACL = new Parse.ACL();
+            var memberRole = new Parse.Role("Members-"+orgNew.id, memberRoleACL);
+            memberRole.getUsers().add(parse.storage.cur_user);
+            memberRoleACL.setRoleReadAccess(memberRole,true);
+            memberRoleACL.setRoleWriteAccess(adminRole,true);
+
+            return ParseQueryAngular(memberRole,{functionToCall:'save',params:[null]});
+
+        },function(error){
+            $scope.msg = 'Not rolling: '+JSON.stringify(error);
+        })
+
+        .then(function(role){
+
+            $scope.msg = 'permissions added.';
+            addOrgToView(orgNew);
+
+            $scope.addMember(parse.storage.cur_user.getEmail(),true,orgNew);
+
+        },function(error){
+            $scope.msg = 'zyada nahi chad rhi: '+JSON.stringify(error);
         })
 
         $scope.newOrgName =''
@@ -420,37 +422,66 @@ trelloApp.controller('body',function($scope,$firebase,ParseQueryAngular,ParseSDK
             var org = parse.storage.selected_org;
         }
 
+        var qryRole = new Parse.Query(Parse.Role);
+        qryRole.equalTo('name','Members-'+org.id);
 
-        var orgMem;
+        ParseQueryAngular(qryRole)
+        .then(function(roles){
+            var memberRole = roles[0];
+            memberRole.getUsers().add(parse.storage.people[email])
+            return ParseQueryAngular(memberRole,{functionToCall:'save',params:[null]});
+        })
+        .then(function(memberRole){
+            if(asAdmin){
+                var qryARole = new Parse.Query(Parse.Role);
+                qryARole.equalTo('name',"Admins-"+org.id);
+                return ParseQueryAngular(qryARole);
 
-        //var qryRole = new Parse.Query(Parse.Role);
-        //qry.equalTo('name')
+            } else {
+                var empty = $q.defer();
+                setTimeout(function(){
+                    empty.resolve(false);
+                },0);
+                return empty;
+            }
+        })
+        .then(function(roles){
+            console.log(roles);
+            if(asAdmin && roles){
+                var adminRole = roles[0];
+                adminRole.getUsers().add(parse.storage.people[email])
+                return ParseQueryAngular(adminRole ,{functionToCall:'save',params:[null]});
+            }else{
+                var empty = $q.defer();
+                setTimeout(function(){
+                    empty.resolve(false);
+                },0);
+                return empty;
+            }
+        })
+        .then(function(){
+            var qry = new Parse.Query(parse.collection.org_mem);
+            qry.equalTo('member',parse.storage.people[email])
+            qry.equalTo('org',org);
 
-        //var role = Parse.Role.get("Admins-"+org.id, roleACL);
-        //role.getUsers().add(parse.storage.cur_user);
+            return ParseQueryAngular(qry);
+        })
+        .then(function(entries){
 
-        var qry = new Parse.Query(parse.collection.org_mem);
-        qry.equalTo('member',parse.storage.people[email])
-        qry.equalTo('org',org);
-
-        ParseQueryAngular(qry).then(function(entries){
-            //console.log(entries);
             if (entries.length==0){
-                orgMem =  new parse.collection.org_mem();
+                var orgMem =  new parse.collection.org_mem();
                 orgMem.set('org',org);
                 orgMem.set('member',parse.storage.people[email]);
-                //console.log(parse.storage.people[email]);
-                //console.log(parse.storage.people);
-                
-            } else {
-                orgMem = entries[0];
 
+            } else {
+                var orgMem = entries[0];
             }
 
             orgMem.set('admin',asAdmin);
             return ParseQueryAngular(orgMem,{functionToCall:'save',params:[null]});
 
-        }).then(function(memberEntry){
+        })
+        .then(function(memberEntry){
             if (org == parse.storage.selected_org)
                 fetchOrgMembers();
         },function(err) {
