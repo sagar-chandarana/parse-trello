@@ -1,0 +1,14 @@
+{
+    "applications": {
+        "_default": {
+            "link": "parse-trello"
+        }, 
+        "parse-trello": {
+            "applicationId": "6uLm7rzMrW64YqAh5dlLJuxX7sZffCJq2PTjbxaJ", 
+            "masterKey": "yTPzYhdgT85izr85YhQasACZXJ4ZGtSPowZdDFb7"
+        }
+    }, 
+    "global": {
+        "parseVersion": "1.2.18"
+    }
+}

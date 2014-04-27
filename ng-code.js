@@ -134,48 +134,34 @@ trelloApp.controller('body',function($scope,$q,ParseQueryAngular,ParseSDK,Extend
 
     var reset = function(what){
         switch(what){
-            case 'org':
-                reset('org_mems')
-                parse.storage.selected_org = false;
-                $scope.displayOrg = false;
-                break;
-
-            case 'org_mems':
-                 $scope.orgMembers = {};
-                 break;
-            
-            case 'all_orgs':
-                reset('org');
-                parse.storage.orgs = {};
-                $scope.displayOrgs = {};
-                break;
-            
-            case 'board':
-                reset('board_mems');
-                parse.storage.selected_board = false;
-                $scope.displayBoard = false;
-                break;
-
-            case 'board_mems':
-                $scope.shared = {};
-                break;
-            
-            case 'all_boards':
-                reset('board');
-                $scope.displayBoards = {};
-                parse.storage.boards = {}
-                break;
+            case 'all':
 
             case 'cur_user':
-                reset('all_orgs');
-                reset('all_boards');
                 $scope.user = null;
                 $scope.isLoggedIn = undefined;
                 parse.storage.cur_user = false;
-                break;
 
-            case 'all':
-                reset('cur_user');
+            case 'all_orgs':
+                parse.storage.orgs = {};
+                $scope.displayOrgs = {};
+
+            case 'org':
+                parse.storage.selected_org = false;
+                $scope.displayOrg = false;
+
+            case 'org_mems':
+                $scope.orgMembers = {};
+
+            case 'all_boards':
+                $scope.displayBoards = {};
+                parse.storage.boards = {};
+            
+            case 'board':
+                parse.storage.selected_board = false;
+                $scope.displayBoard = false;
+
+            case 'board_mems':
+                $scope.shared = {};
                 break;
 
             default:
@@ -411,21 +397,24 @@ trelloApp.controller('body',function($scope,$q,ParseQueryAngular,ParseSDK,Extend
         }
         var org = parse.storage.selected_org;
         var orgMem;
-        var qryRole = new Parse.Query(Parse.Role);
+        var promise;
+        
 
         if(asAdmin){
+            var qryRole = new Parse.Query(Parse.Role);
             qryRole.equalTo('name',"Admins-"+org.id);
-        } else {
-            qryRole.equalTo('name','Members-'+org.id);
-        }
-
-        ParseQueryAngular(qryRole)
-            .then(function(roles){
+            promise = ParseQueryAngular(qryRole).then(function(roles){
                 var role = roles[0];
                 role.getUsers().remove(parse.storage.people[email])
                 return ParseQueryAngular(role,{functionToCall:'save',params:[null]});
-            })
-            .then(function(){
+            });
+        } else {
+            var params = ['removeMember',{org_id:org.id,user_id:parse.storage.people[email].id}]
+            promise = ParseQueryAngular(Parse.Cloud,{functionToCall:'run',params:params});
+        }
+
+        promise
+            .then(function(suc){
                 var qry = new Parse.Query(parse.collection.org_mem);
                 qry.equalTo('member',parse.storage.people[email])
                 qry.equalTo('org',org);
@@ -442,8 +431,13 @@ trelloApp.controller('body',function($scope,$q,ParseQueryAngular,ParseSDK,Extend
                         return ParseQueryAngular(orgMem,{functionToCall:'destroy',params:[null]});
                     }
                 }
-            }).then(function(memberEntry){
-                fetchOrgMembers();
+            }).then(function(){
+                console.log(email,$scope.user.email,asAdmin);
+                if(email == $scope.user.email && !asAdmin){
+                    fetchOrgs();
+                } else {
+                    fetchOrgMembers();
+                }
             },function(err) {
                 $scope.msg = "Error adding member: "+ JSON.stringify(err);
             });
