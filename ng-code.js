@@ -101,10 +101,9 @@ trelloApp.controller('body',function($scope,$q,ParseQueryAngular,ParseSDK,Extend
         var qry = new Parse.Query(parse.collection.board);
         qry.equalTo('members',parse.storage.cur_user);
         qry.equalTo('org',parse.storage.selected_org);
-        //qry.include('members');
         qry.include('by');
         ParseQueryAngular(qry).then(function(boards){
-            //console.log("yo boards",boards);
+            console.log("yo boards",boards);
             boards.forEach(function(board){
                 addBoardToView(board);
             })
@@ -409,7 +408,7 @@ trelloApp.controller('body',function($scope,$q,ParseQueryAngular,ParseSDK,Extend
                 return ParseQueryAngular(role,{functionToCall:'save',params:[null]});
             });
         } else {
-            var params = ['removeMember',{org_id:org.id,user_id:parse.storage.people[email].id}]
+            var params = ['removeMember',{org_id:org.id,user_id:parse.storage.people[email].id}] //TODO-NO: it should be removeMe. //Not doing it. No significance for now as the basic problems are known.
             promise = ParseQueryAngular(Parse.Cloud,{functionToCall:'run',params:params});
         }
 
@@ -428,6 +427,7 @@ trelloApp.controller('body',function($scope,$q,ParseQueryAngular,ParseSDK,Extend
                         orgMem.set('admin', false);
                         return ParseQueryAngular(orgMem,{functionToCall:'save',params:[null]});
                     } else {
+                        //TODO-NO: not going ahead. //Its okay.
                         return ParseQueryAngular(orgMem,{functionToCall:'destroy',params:[null]});
                     }
                 }
@@ -461,7 +461,6 @@ trelloApp.controller('body',function($scope,$q,ParseQueryAngular,ParseSDK,Extend
         ParseQueryAngular(qryRole)
         .then(function(roles){
             memberRole = roles[0];
-
             memberRole.getUsers().add(parse.storage.people[email])
             return ParseQueryAngular(memberRole,{functionToCall:'save',params:[null]});
         })
